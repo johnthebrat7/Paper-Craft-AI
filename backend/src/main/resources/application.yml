@@ -1,0 +1,49 @@
+server:
+  port: 8080
+
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/vedaai}
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  spring:
+    ai:
+      google:
+        genai:
+          api-key: "AIzaSyAcJJT45cfFLx58nQH0Zb_h7sz4FNhhqaA"
+          project-id: "1097162137958"
+          chat:
+            options:
+              model: gemini-2.0-flash
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:VedaAISecretKey2025VedaAISecretKey2025VedaAISecretKey2025VedaAI}
+    expirationMs: 86400000 # 24 hours
+  rabbitmq:
+    exchanges:
+      main: vedaai.exchange
+    queues:
+      generation: ai.generation.queue
+      pdf: pdf.generation.queue
+    routing-keys:
+      generation: generation.key
+      pdf: pdf.key
+
+logging:
+  level:
+    com.AITeacherHelper: DEBUG
+    org.springframework.security: WARN
+    org.springframework.amqp: INFO
