@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # VedaAI — AI Assessment Creator
 
 A production-ready, full-stack AI-powered assessment creation platform for teachers.
@@ -149,3 +150,7 @@ npm run dev
 |---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8080` |
 | `NEXT_PUBLIC_WS_URL` | `http://localhost:8080/ws` |
+=======
+# Paper-Craft-AI
+AI question paper Generator
+>>>>>>> 6ed7af80b07209d34826532c6fc395fafb2d4efc
