@@ -56,7 +56,8 @@ services:
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
       GEMINI_API_KEY: ${api-key}
-      JWT_SECRET: ${JWT_SECRET:-VedaAISecretKey2025VedaAISecretKey2025VedaAISecretKey2025VedaAI}
+      JWT_SECRET: ${JWT_SECRET}
+      GEMINI_PROJECT_ID: ${project-id}
       app.frontend.url: http://localhost:3000
 
   # ─── Frontend ─────────────────────────────────────────────────────────────────
