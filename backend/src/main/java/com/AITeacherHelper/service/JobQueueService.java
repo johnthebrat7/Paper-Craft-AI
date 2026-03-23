@@ -42,28 +42,31 @@ public class JobQueueService {
         if (refinementPrompt != null) {
             assignment.setRefinementInstructions(refinementPrompt);
         } else {
-            assignment.setRefinementInstructions(null); // clear previous refinement
+            assignment.setRefinementInstructions(null);
         }
         assignment.setStatus(AssignmentStatus.GENERATING);
         assignment.setUpdatedAt(LocalDateTime.now());
-        assignmentRepository.save(assignment);
 
-        String jobId = UUID.randomUUID().toString();
-        JobTracker jobTracker = JobTracker.builder()
-                .jobId(jobId)
-                .assignmentId(assignmentId)
-                .status(AssignmentStatus.GENERATING)
-                .progress(0)
-                .message(logMessage)
-                .startedAt(LocalDateTime.now())
-                .build();
+        // Reuse existing JobTracker if present, otherwise create new one
+        JobTracker jobTracker = jobTrackerRepository.findFirstByAssignmentId(assignmentId)
+                .orElse(JobTracker.builder()
+                        .jobId(UUID.randomUUID().toString())
+                        .assignmentId(assignmentId)
+                        .startedAt(LocalDateTime.now())
+                        .build());
+
+        jobTracker.setStatus(AssignmentStatus.GENERATING);
+        jobTracker.setProgress(0);
+        jobTracker.setMessage(logMessage);
+        jobTracker.setErrorMessage(null);
+        jobTracker.setCompletedAt(null);
+        jobTracker.setStartedAt(LocalDateTime.now());
         jobTrackerRepository.save(jobTracker);
 
-        // Update assignment with jobId
-        assignment.setJobId(jobId);
+        assignment.setJobId(jobTracker.getJobId());
         assignmentRepository.save(assignment);
 
         rabbitTemplate.convertAndSend(exchange, generationRoutingKey, assignmentId);
-        return jobId;
+        return jobTracker.getJobId();
     }
 }

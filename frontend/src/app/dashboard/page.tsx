@@ -3,8 +3,7 @@ import { useEffect } from "react";
 import { useAssignmentStore } from "@/store/assignmentStore";
 import { useAuthStore } from "@/store/authStore";
 import Link from "next/link";
-import { FileText, Users, BookOpen, Plus, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
-
+import { FileText, Users, BookOpen, Plus, TrendingUp, Clock, CheckCircle2, Sparkles } from "lucide-react";
 export default function DashboardHome() {
   const { assignments, fetchAssignments } = useAssignmentStore();
   const { name } = useAuthStore();

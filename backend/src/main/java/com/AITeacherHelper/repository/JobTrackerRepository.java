@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface JobTrackerRepository extends MongoRepository<JobTracker, String> {
-    Optional<JobTracker> findByAssignmentId(String assignmentId);
+    Optional<JobTracker> findFirstByAssignmentId(String assignmentId);
 }

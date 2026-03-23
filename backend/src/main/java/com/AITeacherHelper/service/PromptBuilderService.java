@@ -1,19 +1,15 @@
 package com.AITeacherHelper.service;
 
-import com.AITeacherHelper.dto.response.AiGeneratedPaper;
 import com.AITeacherHelper.enums.QuestionType;
 import com.AITeacherHelper.model.Assignment;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,51 +38,67 @@ public class PromptBuilderService {
                 : Collections.singletonList(QuestionType.SHORT_ANSWER);
         String questionTypesStr = types.stream().map(QuestionType::name).collect(Collectors.joining(", "));
 
-        var outputConverter = new BeanOutputConverter<>(AiGeneratedPaper.class);
-        String formatInstructions = outputConverter.getFormat();
-
-        String templateString = """
+        // Build prompt using plain String.format to avoid PromptTemplate brace conflicts with JSON
+        return String.format("""
                 You are an expert academic exam paper generator.
                 Generate a well-structured question paper based on the following:
 
-                - School: {schoolName}
-                - Subject: {subject}
-                - Class/Grade: {standardClass}
-                - Topic/Description: {description}
-                - Total Questions: {totalQuestions}
-                - Marks per Question: {marks}
-                - Allowed Question Types: {questionTypes}
-                - Additional Instructions: {instructions}
+                - School: %s
+                - Subject: %s
+                - Class/Grade: %s
+                - Topic/Description: %s
+                - Total Questions: %d
+                - Marks per Question: %d
+                - Allowed Question Types: %s
+                - Additional Instructions: %s
 
                 DIFFICULTY DISTRIBUTION:
-                - EASY: {easy} questions
-                - MODERATE: {moderate} questions
-                - HARD: {hard} questions
+                - EASY: %d questions
+                - MODERATE: %d questions
+                - HARD: %d questions
 
-                GROUPING:
+                GROUPING RULES:
                 - Group questions by type into sections (e.g., Section A for MCQ, Section B for Short Answer).
                 - Each section must have a clear title and instruction line.
-                - Each question must include questionText, questionType, difficulty, and marks.
+                - Each question must have: questionText, questionType, difficulty, marks.
                 - Do NOT include difficulty or marks inside the question text itself.
 
-                {formatInstructions}
-                """;
+                YOU MUST RESPOND WITH ONLY VALID JSON. NO EXTRA TEXT, NO MARKDOWN, NO CODE BLOCKS.
+                The JSON must exactly follow this structure:
+                {
+                  "sections": [
+                    {
+                      "title": "Section A",
+                      "instruction": "Attempt all questions",
+                      "questions": [
+                        {
+                          "questionText": "What is photosynthesis?",
+                          "questionType": "SHORT_ANSWER",
+                          "difficulty": "EASY",
+                          "marks": 2,
+                          "imageUrl": null,
+                          "answerKey": null
+                        }
+                      ]
+                    }
+                  ]
+                }
 
-        PromptTemplate promptTemplate = new PromptTemplate(templateString);
-        return promptTemplate.render(Map.ofEntries(
-                Map.entry("schoolName", assignment.getSchoolName() != null ? assignment.getSchoolName() : "N/A"),
-                Map.entry("subject", assignment.getSubject()),
-                Map.entry("standardClass", assignment.getStandardClass() != null ? assignment.getStandardClass() : "General"),
-                Map.entry("description", assignment.getDescription() != null ? assignment.getDescription() : "General topics"),
-                Map.entry("totalQuestions", totalQuestions),
-                Map.entry("marks", marks),
-                Map.entry("questionTypes", questionTypesStr),
-                Map.entry("instructions", assignment.getAdditionalInstructions() != null ? assignment.getAdditionalInstructions() : "N/A"),
-                Map.entry("easy", easy),
-                Map.entry("moderate", moderate),
-                Map.entry("hard", hard),
-                Map.entry("formatInstructions", formatInstructions)
-        ));
+                Valid questionType values: MCQ, SHORT_ANSWER, LONG_ANSWER, NUMERICAL, DIAGRAM_BASED, TRUE_FALSE, FILL_IN_THE_BLANK
+                Valid difficulty values: EASY, MODERATE, HARD
+                """,
+                assignment.getSchoolName() != null ? assignment.getSchoolName() : "N/A",
+                assignment.getSubject(),
+                assignment.getStandardClass() != null ? assignment.getStandardClass() : "General",
+                assignment.getDescription() != null ? assignment.getDescription() : "General topics",
+                totalQuestions,
+                marks,
+                questionTypesStr,
+                assignment.getAdditionalInstructions() != null ? assignment.getAdditionalInstructions() : "N/A",
+                easy,
+                moderate,
+                hard
+        );
     }
 
     private String buildRefinementPrompt(Assignment assignment) {
@@ -97,19 +109,16 @@ public class PromptBuilderService {
             log.error("Failed to serialize sections for refinement", e);
         }
 
-        var outputConverter = new BeanOutputConverter<>(AiGeneratedPaper.class);
-        String formatInstructions = outputConverter.getFormat();
-
-        String templateString = """
+        return String.format("""
                 You are an expert academic editor.
-                I have an existing question paper for {subject} (Class: {standardClass}).
+                I have an existing question paper for %s (Class: %s).
                 Modify it based on the teacher's request below.
 
                 EXISTING PAPER (JSON):
-                {currentPaperJson}
+                %s
 
                 TEACHER'S REFINEMENT REQUEST:
-                "{refinementRequest}"
+                "%s"
 
                 INSTRUCTIONS:
                 - Apply the requested changes while maintaining academic tone and quality.
@@ -117,16 +126,34 @@ public class PromptBuilderService {
                 - If asked to add questions, maintain difficulty distribution.
                 - Return the complete updated paper, not just the changes.
 
-                {formatInstructions}
-                """;
+                YOU MUST RESPOND WITH ONLY VALID JSON. NO EXTRA TEXT, NO MARKDOWN, NO CODE BLOCKS.
+                The JSON must exactly follow this structure:
+                {
+                  "sections": [
+                    {
+                      "title": "Section A",
+                      "instruction": "Attempt all questions",
+                      "questions": [
+                        {
+                          "questionText": "question here",
+                          "questionType": "SHORT_ANSWER",
+                          "difficulty": "EASY",
+                          "marks": 2,
+                          "imageUrl": null,
+                          "answerKey": null
+                        }
+                      ]
+                    }
+                  ]
+                }
 
-        PromptTemplate promptTemplate = new PromptTemplate(templateString);
-        return promptTemplate.render(Map.of(
-                "subject", assignment.getSubject(),
-                "standardClass", assignment.getStandardClass() != null ? assignment.getStandardClass() : "General",
-                "currentPaperJson", currentPaperJson,
-                "refinementRequest", assignment.getRefinementInstructions(),
-                "formatInstructions", formatInstructions
-        ));
+                Valid questionType values: MCQ, SHORT_ANSWER, LONG_ANSWER, NUMERICAL, DIAGRAM_BASED, TRUE_FALSE, FILL_IN_THE_BLANK
+                Valid difficulty values: EASY, MODERATE, HARD
+                """,
+                assignment.getSubject(),
+                assignment.getStandardClass() != null ? assignment.getStandardClass() : "General",
+                currentPaperJson,
+                assignment.getRefinementInstructions()
+        );
     }
 }

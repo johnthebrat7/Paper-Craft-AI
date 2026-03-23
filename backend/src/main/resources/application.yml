@@ -22,8 +22,8 @@ spring:
     ai:
       google:
         genai:
-          api-key: "AIzaSyAcJJT45cfFLx58nQH0Zb_h7sz4FNhhqaA"
-          project-id: "1097162137958"
+          api-key: ${spring.ai.google.genai.api-key}
+          project-id: ${spring.ai.google.genai.project-id}
           chat:
             options:
               model: gemini-2.0-flash

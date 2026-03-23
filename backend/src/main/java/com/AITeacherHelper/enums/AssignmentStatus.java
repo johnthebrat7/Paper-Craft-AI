@@ -4,5 +4,6 @@ public enum AssignmentStatus {
     DRAFT,
     GENERATING,
     COMPLETED,
-    FAILED
+    FAILED,
+    PENDING
 }

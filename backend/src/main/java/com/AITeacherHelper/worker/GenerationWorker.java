@@ -9,6 +9,7 @@ import com.AITeacherHelper.repository.AssignmentRepository;
 import com.AITeacherHelper.repository.JobTrackerRepository;
 import com.AITeacherHelper.service.NotificationService;
 import com.AITeacherHelper.service.PromptBuilderService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -28,18 +29,27 @@ public class GenerationWorker {
     private final PromptBuilderService promptBuilderService;
     private final ChatClient chatClient;
     private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @RabbitListener(queues = "${app.rabbitmq.queues.generation}")
     public void processGeneration(String assignmentId) {
         log.info("Received generation request for Assignment ID: {}", assignmentId);
 
-        Optional<JobTracker> jobOptional = jobTrackerRepository.findByAssignmentId(assignmentId);
+        // Use findFirstByAssignmentId to safely handle any accidental duplicate documents
+        Optional<JobTracker> jobOptional = jobTrackerRepository.findFirstByAssignmentId(assignmentId);
         if (jobOptional.isEmpty()) {
             log.error("JobTracker not found for Assignment ID: {}", assignmentId);
             return;
         }
 
         JobTracker job = jobOptional.get();
+
+        // Idempotency guard: if this job is already completed or failed, skip reprocessing.
+        // This prevents duplicate work when RabbitMQ redelivers a message after a transient failure.
+        if (job.getStatus() == AssignmentStatus.COMPLETED) {
+            log.warn("Job {} already COMPLETED. Skipping.", job.getJobId());
+            return;
+        }
 
         try {
             updateJobStatus(job, 10, "Fetching assignment details...", AssignmentStatus.GENERATING);
@@ -51,9 +61,30 @@ public class GenerationWorker {
             String prompt = promptBuilderService.buildPrompt(assignment);
 
             updateJobStatus(job, 50, "AI is generating your question paper...", AssignmentStatus.GENERATING);
-            AiGeneratedPaper generatedPaper = chatClient.prompt(prompt)
+
+            // Get raw string response from AI
+            String rawResponse = chatClient.prompt(prompt)
                     .call()
-                    .entity(AiGeneratedPaper.class);
+                    .content();
+
+            log.debug("Raw AI response: {}", rawResponse);
+
+            if (rawResponse == null || rawResponse.isBlank()) {
+                throw new RuntimeException("AI returned an empty response");
+            }
+
+            // Strip markdown code blocks if the model wraps JSON in ```json ... ```
+            String cleanedResponse = rawResponse.trim();
+            if (cleanedResponse.startsWith("```")) {
+                cleanedResponse = cleanedResponse
+                        .replaceAll("^```json\\s*", "")
+                        .replaceAll("^```\\s*", "")
+                        .replaceAll("```\\s*$", "")
+                        .trim();
+            }
+
+            // Parse the JSON manually
+            AiGeneratedPaper generatedPaper = objectMapper.readValue(cleanedResponse, AiGeneratedPaper.class);
 
             if (generatedPaper == null || generatedPaper.getSections() == null || generatedPaper.getSections().isEmpty()) {
                 throw new RuntimeException("AI returned an empty or malformed question paper");
@@ -63,7 +94,7 @@ public class GenerationWorker {
 
             assignment.setSections(generatedPaper.getSections());
             assignment.setStatus(AssignmentStatus.COMPLETED);
-            assignment.setRefinementInstructions(null); // Clear after use
+            assignment.setRefinementInstructions(null);
             assignment.setUpdatedAt(LocalDateTime.now());
             assignmentRepository.save(assignment);
 
