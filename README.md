@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # VedaAI — AI Assessment Creator
 
 A production-ready, full-stack AI-powered assessment creation platform for teachers.
