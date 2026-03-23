@@ -9,7 +9,7 @@ A production-ready, full-stack AI-powered assessment creation platform for teach
 |---|---|
 | Frontend | Next.js 14 + TypeScript + Tailwind CSS + Zustand |
 | Backend | Spring Boot 3.3 + Java 21 |
-| AI | Spring AI + OpenAI GPT-4o |
+| AI | Spring AI + Gemini Flash |
 | Database | MongoDB |
 | Cache | Redis |
 | Queue | RabbitMQ |
